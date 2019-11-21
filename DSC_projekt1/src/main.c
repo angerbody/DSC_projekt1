@@ -15,5 +15,12 @@
 int main(void)
 {
 
+	RCC -> AHBENR |= (RCC_AHBENR_GPIOAEN);
+	GPIOA -> MODER = 0xA8000000; //reset value
+	GPIOA -> MODER |= (GPIO_MODER_MODER5_0);
+	GPIOA -> MODER &= ~(GPIO_MODER_MODER5_1);
+
+	GPIOA -> ODR |= (GPIO_ODR_ODR_5);
+
 	for(;;);
 }
