@@ -13,6 +13,8 @@
 
 uint16_t i = 0;
 uint8_t dir = 1;
+uint8_t fadeFlag = 1;
+uint8_t blinkFlag = 0;
 
 int main(void)
 {
@@ -30,42 +32,58 @@ int main(void)
 	//Konfiguracja TIM3 - podstawa czasu (100ms ??)
 	//SystemCoreClock        = 2097000U;
 	TIM3 -> PSC = SystemCoreClock/1000; //podstawa czasu = 1ms
-	TIM3 -> ARR = 100;
+	TIM3 -> ARR = 1;
 	TIM3 -> EGR |= TIM_EGR_UG;
 	TIM3 -> DIER |= TIM_DIER_CC1IE;
-	NVIC_EnableIRQ(TIM3_IRQn);
 	TIM3 -> CR1 |= TIM_CR1_CEN;
 
 	//Konfiguracja TIM2 - zegar z wyjœciem PWM
-	TIM2 -> PSC = 100;
-	TIM2 -> ARR = 10000;
-	TIM2 -> CCR1 = 100;
+	TIM2 -> PSC = 10;
+	TIM2 -> ARR = 300;
+	TIM2 -> CCR1 = 0;
 	TIM2 -> CR1 |= TIM_CR1_ARPE;
 	TIM2 -> CCMR1 |= TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1PE;
 	TIM2 -> CCER |= TIM_CCER_CC1E; //enable channel 1
 	TIM2 -> EGR |= TIM_EGR_UG; //co to by³o, event generator???
 	TIM2 -> CR1 |= TIM_CR1_CEN; //enable timer
 
+	NVIC_EnableIRQ(TIM3_IRQn);
+
 	while (1)
 	{
+
 
 	}
 }
 
 void TIM3_IRQHandler(void)
 {
-	TIM3->SR &= ~TIM_SR_UIF;
-	if (dir == 1)
+	if (fadeFlag == 1)
 	{
-		TIM2 -> CCR1 = i++;
-		if(i > (TIM2 -> ARR))
-			dir = 0;
+		if (TIM2 -> PSC != 10)
+			TIM2 -> PSC = 10;
+		if (dir == 1)
+		{
+			TIM2 -> CCR1 = i++;
+			if(i > (TIM2 -> ARR))
+				dir = 0;
+		}
+		else
+		{
+			TIM2 -> CCR1 = i--;
+			if (i == 0)
+				dir = 1;
+		}
 	}
-	else
+	else if (blinkFlag == 1)
 	{
-		TIM2 -> CCR1 = i--;
-		if (i == 0)
-			dir = 1;
+		if ((TIM2 -> PSC != 10000) & (TIM2 -> CCR1 != (TIM2 -> ARR)/2))
+		{
+			TIM2 -> PSC = 10000;
+			TIM2 -> CCR1 = (TIM2 -> ARR)/2;
+		}
 	}
+
+	TIM3->SR = 0;
 }
 
