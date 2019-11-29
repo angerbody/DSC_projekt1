@@ -8,16 +8,36 @@
   ******************************************************************************
 */
 
-
 #include "stm32l1xx.h"
+#include "stm32l1xx_hal.h"
 
 uint16_t i = 0;
 uint8_t dir = 1;
 uint8_t fadeFlag = 1;
 uint8_t blinkFlag = 0;
+//TIM_Handle_TypeDef tim_hal = {};
 
 int main(void)
 {
+	HAL_Init();
+
+	//__HAL_RCC_GPIOA_CLK_ENABLE();
+	//GPIO_InitTypeDef gpio_hal = {0};
+	//gpio_hal.Pin = GPIO_PIN_5;
+	//gpio_hal.Mode = GPIO_MODE_OUTPUT_PP;
+	//HAL_GPIO_Init(GPIOA, &gpio_hal);
+
+	//__HAL_RCC_TIM2_CLK_ENABLE();
+	//tim_hal.Instance = TIM2;
+	//tim_hal.Init.Prescaler = SystemCoreClock/1000;
+	//tim_hal.Init.Period = 500;
+	//HAL_TIM_Base_Init(&tim_hal);
+	//HAL_TIM_Base_Start_IT(&tim_hal);
+
+	//HAL_NVIC_EnableIRQ(TIM2_IRQn)
+
+
+
 	//Konfiguracja RCC
 	RCC -> AHBENR |= RCC_AHBENR_GPIOAEN;
 	RCC -> APB1ENR |= RCC_APB1ENR_TIM2EN;
@@ -29,7 +49,7 @@ int main(void)
 	GPIOA -> MODER &= ~GPIO_MODER_MODER5_0;
 	GPIOA -> AFR[0] = 0x00100000; //GPIO_AFRL_AFSEL5; --AF1 - TIM2_CH1 --NA SZTYWNO, MAKRO DO SPRAWDZENIA
 
-	//Konfiguracja TIM3 - podstawa czasu (100ms ??)
+	//Konfiguracja TIM3 - podstawa czasu
 	//SystemCoreClock        = 2097000U;
 	TIM3 -> PSC = SystemCoreClock/1000; //podstawa czasu = 1ms
 	TIM3 -> ARR = 1;
@@ -47,12 +67,13 @@ int main(void)
 	TIM2 -> EGR |= TIM_EGR_UG; //co to by³o, event generator???
 	TIM2 -> CR1 |= TIM_CR1_CEN; //enable timer
 
+	//Koniguracja NVIC
 	NVIC_EnableIRQ(TIM3_IRQn);
 
 	while (1)
 	{
-
-
+		//HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+		//HAL_Delay(500UL);
 	}
 }
 
@@ -87,3 +108,9 @@ void TIM3_IRQHandler(void)
 	TIM3->SR = 0;
 }
 
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+	//if(htim->Instance == TIM2)
+	//HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+//}
+}
