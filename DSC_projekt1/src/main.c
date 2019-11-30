@@ -9,6 +9,8 @@
 */
 
 #include "stm32l1xx.h"
+#include "stm32l1xx_ll_usart.h"
+#include "stm32l1xx_ll_bus.h"
 #include "stm32l1xx_hal.h"
 
 uint16_t i = 0;
@@ -35,9 +37,9 @@ int main(void)
 	//HAL_TIM_Base_Start_IT(&tim_hal);
 
 	//HAL_NVIC_EnableIRQ(TIM2_IRQn)
-
-
-
+	///////////////////////////
+	// CMSIS
+	///////////////////////////
 	//Konfiguracja RCC
 	RCC -> AHBENR |= RCC_AHBENR_GPIOAEN;
 	RCC -> APB1ENR |= RCC_APB1ENR_TIM2EN;
@@ -69,6 +71,21 @@ int main(void)
 
 	//Koniguracja NVIC
 	NVIC_EnableIRQ(TIM3_IRQn);
+
+
+	///////////////////////////
+	// Low Layer
+	///////////////////////////
+	LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
+
+	LL_USART_InitTypeDef usart2;
+	LL_USART_StructInit(&usart2);
+	LL_USART_Init(USART2, &usart2);
+	usart2.BaudRate = 9600;
+	LL_USART_SetParity(USART2, LL_USART_PARITY_NONE);
+	LL_USART_SetStopBitsLength(USART2, LL_USART_STOPBITS_0_5);
+
+	//LL_USART_EnableIT_;
 
 	while (1)
 	{
@@ -113,4 +130,4 @@ void TIM3_IRQHandler(void)
 	//if(htim->Instance == TIM2)
 	//HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 //}
-}
+
