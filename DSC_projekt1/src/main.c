@@ -10,6 +10,7 @@
 
 #include "stm32l1xx.h"
 #include "stm32l1xx_ll_usart.h"
+#include "stm32l1xx_ll_gpio.h"
 #include "stm32l1xx_ll_bus.h"
 #include "stm32l1xx_hal.h"
 
@@ -17,13 +18,23 @@ uint16_t i = 0;
 uint8_t dir = 1;
 uint8_t fadeFlag = 1;
 uint8_t blinkFlag = 0;
+uint16_t PomiarADC;
+
+ADC_HandleTypeDef adc;
 //TIM_Handle_TypeDef tim_hal = {};
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* adc)
+{
+    PomiarADC = HAL_ADC_GetValue(adc);
+}
+
+void ADC_IRQHandler()
+{
+    HAL_ADC_IRQHandler(&adc);
+}
 
 int main(void)
 {
-	HAL_Init();
-
-	//__HAL_RCC_GPIOA_CLK_ENABLE();
 	//GPIO_InitTypeDef gpio_hal = {0};
 	//gpio_hal.Pin = GPIO_PIN_5;
 	//gpio_hal.Mode = GPIO_MODE_OUTPUT_PP;
@@ -37,6 +48,8 @@ int main(void)
 	//HAL_TIM_Base_Start_IT(&tim_hal);
 
 	//HAL_NVIC_EnableIRQ(TIM2_IRQn)
+
+
 	///////////////////////////
 	// CMSIS
 	///////////////////////////
@@ -78,17 +91,86 @@ int main(void)
 	///////////////////////////
 	LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
 
-	LL_USART_InitTypeDef usart2;
-	LL_USART_StructInit(&usart2);
-	LL_USART_Init(USART2, &usart2);
-	usart2.BaudRate = 9600;
-	LL_USART_SetParity(USART2, LL_USART_PARITY_NONE);
-	LL_USART_SetStopBitsLength(USART2, LL_USART_STOPBITS_0_5);
+	LL_USART_InitTypeDef usart = {0};
+	LL_GPIO_InitTypeDef usart_pins = {0};
 
-	//LL_USART_EnableIT_;
+	usart_pins.Pin = LL_GPIO_PIN_2;
+	usart_pins.Mode = LL_GPIO_MODE_ALTERNATE;
+	usart_pins.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+	usart_pins.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	usart_pins.Pull = LL_GPIO_PULL_UP;
+	usart_pins.Alternate = LL_GPIO_AF_7;
+	LL_GPIO_Init(GPIOA, &usart_pins);
+
+	usart_pins.Pin = LL_GPIO_PIN_3;
+	usart_pins.Mode = LL_GPIO_MODE_ALTERNATE;
+	usart_pins.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+	usart_pins.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	usart_pins.Pull = LL_GPIO_PULL_UP;
+	usart_pins.Alternate = LL_GPIO_AF_7;
+	LL_GPIO_Init(GPIOA, &usart_pins);
+
+	NVIC_SetPriority(USART2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+	NVIC_EnableIRQ(USART2_IRQn);
+
+	usart.BaudRate = 9600;
+	usart.DataWidth = LL_USART_DATAWIDTH_8B;
+	usart.StopBits = LL_USART_STOPBITS_1;
+	usart.Parity = LL_USART_PARITY_NONE;
+	usart.TransferDirection = LL_USART_DIRECTION_TX_RX;
+	usart.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
+	usart.OverSampling = LL_USART_OVERSAMPLING_16;
+	LL_USART_Init(USART2, &usart);
+	LL_USART_DisableIT_CTS(USART2);
+	LL_USART_EnableIT_RXNE( USART2 );
+	LL_USART_ConfigAsyncMode(USART2);
+	LL_USART_Enable(USART2);
+
+	LL_USART_ReceiveData8(USART2);
+
+
+	///////////////////////////
+	// Hardware Abstraction Layer
+	///////////////////////////
+	HAL_Init();
+	__HAL_RCC_ADC1_CLK_ENABLE();
+
+	ADC_ChannelConfTypeDef adcChannel = {0};
+
+	adc.Instance = ADC1;
+	adc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+	adc.Init.Resolution = ADC_RESOLUTION_12B;
+	adc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	adc.Init.ScanConvMode = ADC_SCAN_DISABLE;
+	adc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	adc.Init.LowPowerAutoWait = ADC_AUTOWAIT_DISABLE;
+	adc.Init.LowPowerAutoPowerOff = ADC_AUTOPOWEROFF_DISABLE;
+	adc.Init.ChannelsBank = ADC_CHANNELS_BANK_A;
+	adc.Init.ContinuousConvMode = ENABLE;
+	adc.Init.NbrOfConversion = 1;
+	adc.Init.DiscontinuousConvMode = DISABLE;
+	adc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+	adc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+	adc.Init.DMAContinuousRequests = DISABLE;
+	HAL_ADC_Init(&adc);
+
+	adcChannel.Channel = ADC_CHANNEL_TEMPSENSOR;
+	adcChannel.Rank = ADC_REGULAR_RANK_1;
+	adcChannel.SamplingTime = ADC_SAMPLETIME_4CYCLES;
+	HAL_ADC_ConfigChannel(&adc, &adcChannel);
+
+	//NVIC_EnableIRQ(ADC1_IRQn);
+	HAL_ADC_Start_IT(&adc);
 
 	while (1)
 	{
+
+		 //if (HAL_ADC_PollForConversion(&adc, 1000000) == HAL_OK) {
+
+		 //PomiarADC = HAL_ADC_GetValue(&adc);
+		 //Vsense = (3.3*PomiarADC)/4095.0;
+		 //Temperature = ((Vsense-0.76)/0.0025)+25;
+		 //}
 		//HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 		//HAL_Delay(500UL);
 	}
@@ -123,6 +205,27 @@ void TIM3_IRQHandler(void)
 	}
 
 	TIM3->SR = 0;
+}
+
+void USART2_IRQHandler(void)
+{
+	if (USART2->DR == 'b')
+	{
+		blinkFlag = 1;
+		fadeFlag = 0;
+	}
+	else if (USART2->DR == 'f')
+	{
+		blinkFlag = 0;
+		fadeFlag = 1;
+	}
+	else if (USART2->DR == 't')
+	{
+
+	}
+
+	LL_USART_ReceiveData8(USART2);
+
 }
 
 //void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
