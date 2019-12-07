@@ -8,6 +8,9 @@
   ******************************************************************************
 */
 
+#define TS_CAL1 (*(uint16_t *)0x1FF800FA)
+#define TS_CAL2 (*(uint16_t *)0x1FF800FE)
+
 #include "stm32l1xx.h"
 #include "stm32l1xx_ll_usart.h"
 #include "stm32l1xx_ll_gpio.h"
@@ -20,21 +23,21 @@ uint8_t fadeFlag = 1;
 uint8_t blinkFlag = 0;
 uint16_t PomiarADC;
 
+float Temperature;
+float Vsense;
+
 ADC_HandleTypeDef adc;
 //TIM_Handle_TypeDef tim_hal = {};
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* adc)
 {
     PomiarADC = HAL_ADC_GetValue(adc);
-}
-
-void ADC_IRQHandler()
-{
-    HAL_ADC_IRQHandler(&adc);
+    Temperature = 80/(TS_CAL2 - TS_CAL1)*(PomiarADC-TS_CAL1)+30;
 }
 
 int main(void)
 {
+	HAL_Init();
 	//GPIO_InitTypeDef gpio_hal = {0};
 	//gpio_hal.Pin = GPIO_PIN_5;
 	//gpio_hal.Mode = GPIO_MODE_OUTPUT_PP;
@@ -48,6 +51,18 @@ int main(void)
 	//HAL_TIM_Base_Start_IT(&tim_hal);
 
 	//HAL_NVIC_EnableIRQ(TIM2_IRQn)
+
+	RCC_OscInitTypeDef RCC_OscInitStruct;
+	RCC_ClkInitTypeDef RCC_ClkInitStruct;
+
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSICalibrationValue = 16;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
+	RCC_OscInitStruct.PLL.PLLDIV = RCC_PLL_DIV3;
+	HAL_RCC_OscConfig(&RCC_OscInitStruct);
 
 
 	///////////////////////////
@@ -132,17 +147,19 @@ int main(void)
 	///////////////////////////
 	// Hardware Abstraction Layer
 	///////////////////////////
-	HAL_Init();
+	__HAL_RCC_COMP_CLK_ENABLE();
+	__HAL_RCC_SYSCFG_CLK_ENABLE();
+	__HAL_RCC_PWR_CLK_ENABLE();
 	__HAL_RCC_ADC1_CLK_ENABLE();
 
 	ADC_ChannelConfTypeDef adcChannel = {0};
 
 	adc.Instance = ADC1;
-	adc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+	adc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV4;
 	adc.Init.Resolution = ADC_RESOLUTION_12B;
 	adc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
 	adc.Init.ScanConvMode = ADC_SCAN_DISABLE;
-	adc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	adc.Init.EOCSelection = ADC_EOC_SEQ_CONV;
 	adc.Init.LowPowerAutoWait = ADC_AUTOWAIT_DISABLE;
 	adc.Init.LowPowerAutoPowerOff = ADC_AUTOPOWEROFF_DISABLE;
 	adc.Init.ChannelsBank = ADC_CHANNELS_BANK_A;
@@ -156,10 +173,13 @@ int main(void)
 
 	adcChannel.Channel = ADC_CHANNEL_TEMPSENSOR;
 	adcChannel.Rank = ADC_REGULAR_RANK_1;
-	adcChannel.SamplingTime = ADC_SAMPLETIME_4CYCLES;
+	adcChannel.SamplingTime = ADC_SAMPLETIME_9CYCLES;
 	HAL_ADC_ConfigChannel(&adc, &adcChannel);
 
-	//NVIC_EnableIRQ(ADC1_IRQn);
+	HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(ADC1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC1_IRQn);
+
 	HAL_ADC_Start_IT(&adc);
 
 	while (1)
@@ -222,6 +242,7 @@ void USART2_IRQHandler(void)
 	else if (USART2->DR == 't')
 	{
 
+		LL_USART_TransmitData8(USART2, (uint8_t)Temperature);
 	}
 
 	LL_USART_ReceiveData8(USART2);

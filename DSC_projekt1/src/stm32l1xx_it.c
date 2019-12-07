@@ -32,6 +32,8 @@
   * @param  None
   * @retval None
   */
+extern ADC_HandleTypeDef adc;
+
 void SysTick_Handler(void)
 {
 	HAL_IncTick();
@@ -39,4 +41,9 @@ void SysTick_Handler(void)
 #ifdef USE_RTOS_SYSTICK
 	osSystickHandler();
 #endif
+}
+
+void ADC1_IRQHandler(void)
+{
+   HAL_ADC_IRQHandler(&adc);
 }
